@@ -63,7 +63,7 @@ module.exports = {
 };
 
 async function setupGame(interaction) {
-  if (!interaction.member.permissions.has('ManageServer')) {
+  if (!interaction.member.permissions.has('ManageGuild')) {
     return interaction.reply({
       content:
         'You do not have `ManageServer` permission to manage worldwar game',
@@ -74,20 +74,13 @@ async function setupGame(interaction) {
   const max = interaction.options.getInteger('max_participants');
 
   if (min < 2)
-    return interaction.reply('Minimum participants must be at least 2.');
+    return interaction.reply({ content: 'Minimum participants must be at least 2.', ephemeral: true });
   if (max <= min)
     return interaction.reply(
       'Maximum participants must be greater than minimum participants.'
     );
 
-  let warNumber;
-  try {
-    const count = await WorldWar.countDocuments();
-    warNumber = count + 1;
-  } catch (error) {
-    console.error('Error counting documents:', error);
-    warNumber = 1;
-  }
+    let warNumber = (await WorldWar.countDocuments().catch(() => 0)) + 1;
 
   const newGame = new WorldWar({
     warNumber,
