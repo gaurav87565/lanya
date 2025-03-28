@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
 const { MemberData, GuildSettings } = require('../../models/Level');
-const { createCanvas, loadImage, registerFont } = require('canvas');
+const { createCanvas, loadImage, registerFont } = require('@napi-rs/canvas');
 const sharp = require('sharp');
 const fetch = require('node-fetch');
 
@@ -12,51 +12,51 @@ module.exports = {
       option.setName('user').setDescription('The user to check.')
     ),
   async execute(interaction) {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
+    }
+
     const guildData = await GuildSettings.findOne({
       guildId: interaction.guild.id,
     });
 
-    // Check if guildData exists, if not create default settings or return an error
     if (!guildData) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           'Leveling system is not configured for this server yet. Please ask an admin to set it up.',
-        flags: 1 << 6,
+        flags: 64,
       });
     }
 
-    // Now we can safely check if leveling is enabled
     if (!guildData.levelingEnabled) {
-      return interaction.reply({
+      return interaction.editReply({
         content: 'Leveling system is not enabled in this Server',
-        flags: 1 << 6,
+        flags: 64,
       });
     }
 
     const targetUser = interaction.options.getUser('user') || interaction.user;
+    const statusTarget = interaction.options.getMember('user') || interaction.member;
+
     const memberData = await MemberData.findOne({
       guildId: interaction.guild.id,
       userId: targetUser.id,
     });
-    const statusTarget =
-      interaction.options.getMember('user') || interaction.member;
 
     if (!memberData) {
-      return interaction.reply({
+      return interaction.editReply({
         content: `${targetUser.username} has no level data.`,
-        flags: 1 << 6,
+        flags: 64,
       });
     }
 
     const xpNeeded = this.calculateXpNeeded(memberData.level, guildData);
     const progress = memberData.xp / xpNeeded;
 
-    // registerFont('./utils/Poppins-Regular.ttf', { family: 'Poppins' });
-
     const canvasWidth = 934;
     const canvasHeight = 282;
     const canvas = createCanvas(canvasWidth, canvasHeight);
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d'); // ✅ Ensure ctx is defined before using it
 
     ctx.fillStyle = '#1C1F26';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -68,15 +68,48 @@ module.exports = {
     ctx.lineWidth = 15;
     ctx.strokeRect(7.5, 7.5, canvas.width - 15, canvas.height - 15);
 
-    const avatarUrl = targetUser.displayAvatarURL({
-      format: 'webp',
+    const avatarUrl = targetUser.displayAvatarURL?.({
+      extension: 'webp', 
       size: 256,
     });
+
+    if (!avatarUrl) {
+      console.error(`Failed to fetch avatar URL for ${targetUser.username}`);
+      return interaction.editReply({
+        content: `Could not retrieve avatar for ${targetUser.username}.`,
+        flags: 64,
+      });
+    }
+
     try {
+      console.log(`Fetching avatar: ${avatarUrl}`);
+
       const response = await fetch(avatarUrl);
-      const buffer = await response.buffer();
-      const pngBuffer = await sharp(buffer).png().toBuffer();
+      if (!response.ok) {
+        throw new Error(`Failed to fetch avatar image: ${response.statusText}`);
+      }
+
+      const buffer = await response.arrayBuffer(); // 🔹 Fix: Use `arrayBuffer()` instead of `buffer()`
+      if (!buffer || buffer.byteLength === 0) {
+        throw new Error(`Avatar image buffer is empty.`);
+      }
+
+      console.log(`Avatar buffer length: ${buffer.byteLength}`);
+
+      const pngBuffer = await sharp(Buffer.from(buffer)).toFormat('png').toBuffer(); // 🔹 Fix: Convert `ArrayBuffer` to `Buffer`
+      if (!pngBuffer || pngBuffer.length === 0) {
+        throw new Error(`Failed to convert avatar to PNG.`);
+      }
+
+      console.log(`Converted PNG buffer length: ${pngBuffer.length}`);
+
       const avatar = await loadImage(pngBuffer);
+      if (!avatar) {
+        throw new Error(`Failed to load image after conversion.`);
+      }
+
+      console.log(`Avatar loaded successfully`);
+
       const avatarSize = 200;
       const avatarX = 30;
       const avatarY = 42;
@@ -94,9 +127,7 @@ module.exports = {
       ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
       ctx.restore();
 
-      const statusColor = await this.getStatusColor(
-        statusTarget.presence?.status
-      );
+      const statusColor = this.getStatusColor(interaction.guild.members.cache.get(targetUser.id)?.presence?.status); // 🔹 Fix: Ensure correct status fetching
       ctx.fillStyle = statusColor;
       ctx.beginPath();
       ctx.arc(
@@ -109,18 +140,15 @@ module.exports = {
       ctx.fill();
     } catch (error) {
       console.error(`Failed to load or convert avatar image: ${error.message}`);
-      return interaction.reply({
+      return interaction.editReply({
         content: `Could not load avatar image for ${targetUser.username}.`,
-        flags: 1 << 6,
+        flags: 64,
       });
     }
-
     ctx.fillStyle = '#EAEAEA';
-    // ctx.font = 'bold 52px "Poppins"';
-    ctx.font = 'bold 52px Arial, sans-serif'; // Use system fonts
+    ctx.font = 'bold 52px Arial, sans-serif';
     ctx.fillText(`${targetUser.username}`, 245, 110);
-    // ctx.font = 'bold 30px "Poppins"';
-    ctx.font = 'bold 30px Arial, sans-serif'; // Use system fonts
+    ctx.font = 'bold 30px Arial, sans-serif';
     ctx.fillText(`XP: ${memberData.xp} / ${xpNeeded}`, 245, 151);
 
     const leaderboardRank = await this.getLeaderboardRank(
@@ -128,17 +156,18 @@ module.exports = {
       memberData.level,
       memberData.xp
     );
+
     ctx.fillStyle = '#5E81AC';
-    // ctx.font = 'bold 40px "Poppins"';
-    ctx.font = 'bold 40px Arial, sans-serif'; // System fonts
+    ctx.font = 'bold 40px Arial, sans-serif';
 
     const rankText = `Rank #${leaderboardRank}`;
     const levelText = `Level ${memberData.level}`;
     const rankTextWidth = ctx.measureText(rankText).width;
     const levelTextWidth = ctx.measureText(levelText).width;
-    const maxX = canvasWidth - 20;
+
+    const maxX = canvasWidth - 40; // 🔹 Adjusted max width for better alignment
     const levelX = maxX - levelTextWidth;
-    const rankX = levelX - rankTextWidth - 20;
+    const rankX = Math.max(245, levelX - rankTextWidth - 20); // 🔹 Prevent overlap
 
     ctx.fillText(rankText, rankX, 60);
     ctx.fillText(levelText, levelX, 60);
@@ -166,9 +195,9 @@ module.exports = {
         ctx,
         progressBarX,
         progressBarY,
-        Math.min(progress * progressBarWidth, progressBarWidth),
+        Math.max(1, Math.min(progress * progressBarWidth, progressBarWidth)), // 🔹 Prevents negative or 0 width
         progressBarHeight,
-        progress > 0 ? 20 : 0
+        20
       );
       ctx.fillStyle = '#43B581';
       ctx.fill();
@@ -176,28 +205,28 @@ module.exports = {
     }
 
     ctx.fillStyle = '#EAEAEA';
-    // ctx.font = 'bold 36px "Poppins"';
-    ctx.font = 'bold 36px Arial, sans-serif'; // Use system fonts
+    ctx.font = 'bold 36px Arial, sans-serif';
     ctx.fillText(
       `${Math.floor(progress * 100)}%`,
       progressBarX + progressBarWidth / 2 - 30,
       progressBarY + 47
     );
 
-    const attachment = new AttachmentBuilder(canvas.toBuffer(), {
-      name: 'level.jpeg',
+    const attachment = new AttachmentBuilder(canvas.toBuffer('image/png'), { // 🔹 Ensured correct buffer format
+      name: 'level.png', // 🔹 Changed to PNG for better quality
     });
-    await interaction.reply({
+
+    await interaction.editReply({
       content: `${targetUser.username}'s Level Information:`,
       files: [attachment],
     });
-  },
-  calculateXpNeeded(level, guildData) {
+    },
+    calculateXpNeeded(level, guildData) {
     return level === 1
       ? guildData.startingXp
       : guildData.startingXp + (level - 1) * guildData.xpPerLevel;
-  },
-  roundRect(ctx, x, y, width, height, radius) {
+    },
+    roundRect(ctx, x, y, width, height, radius) {
     const r = x + width;
     const b = y + height;
     ctx.beginPath();
@@ -213,8 +242,8 @@ module.exports = {
     ctx.closePath();
     ctx.clip();
     return ctx;
-  },
-  getStatusColor(status) {
+    },
+    getStatusColor(status) {
     switch (status) {
       case 'online':
         return '#43B581';
@@ -226,8 +255,8 @@ module.exports = {
       default:
         return '#7E7B7A';
     }
-  },
-  async getLeaderboardRank(guildId, level, xp) {
+    },
+    async getLeaderboardRank(guildId, level, xp) {
     const leaderboard = await MemberData.find({ guildId: guildId })
       .sort({ level: -1, xp: -1 })
       .lean();
@@ -237,5 +266,5 @@ module.exports = {
           user.level === level && user.guildId === guildId && user.xp === xp
       ) + 1;
     return rank > 0 ? rank : 'NA';
-  },
-};
+    },
+    };

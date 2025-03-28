@@ -37,8 +37,8 @@ Lanya is a Discord bot built to improve server engagement and provide useful too
 | `/roleinfo`    | View detailed information about a role |
 | `/serverinfo`  | Display information about the server   |
 | `/userinfo`    | Show information about a user          |
-| `/level`       | Check your current level and XP        |
-| `/leaderboard` | View the server's level leaderboard    |
+| `/invite`      | Shows bot invite link                  |
+| `/support`     | Get invite link to the support server  |
 
 </details>
 
@@ -128,12 +128,20 @@ Lanya is a Discord bot built to improve server engagement and provide useful too
 
 </details>
 
+<details>
+<summary>📊 <strong>Level Commands</strong></summary>
+<br>
+  
+  | Command        | Description                            |
+  | ---------------| -------------------------------------- |
+  | `/level`       | Check your current level and XP        |
+  | `/leaderboard` | View the server's level leaderboard    |
+</details>
+
 ## 🤝 Support Server
 
 For any assistance, feature requests, or bug reports, join our official support server:
 
-<a href="https://discord.gg/kAYpdenZ8b"><img src="https://discord.com/api/guilds/865198018872999966/widget.png?style=banner2" alt="Support Server"></a>
-<br>
   <a href="https://discord.gg/kAYpdenZ8b" target="_blank">
     <img src="https://img.shields.io/static/v1?message=Discord&logo=discord&label=&color=7289DA&logoColor=white&labelColor=&style=for-the-badge" height="35" alt="discord logo"  />
 
@@ -158,16 +166,10 @@ cd Lanya
 2. **Install Dependencies**
 
 ```bash
-npm install
+yarn --frozen-lockfile install
 ```
 
-3. **Run the Setup Script**
-
-```bash
-npm run setup
-```
-
-4. **Enter Your Configuration Details**
+3. **Enter Your Configuration Details**
 
 The setup script will prompt you to enter:
 
@@ -176,10 +178,10 @@ The setup script will prompt you to enter:
 - Weather API Key
 - MongoDB Connection String
 
-5. **Start the Bot**
+4. **Start the Bot**
 
 ```bash
-npm run start
+node lanya.js
 ```
 
 For production environments:

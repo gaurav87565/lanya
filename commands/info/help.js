@@ -14,7 +14,7 @@ const CATEGORY_EMOJIS = {
   Utility: '🔧',
   Fun: '🎮',
   Music: '🎵',
-  General: '📋',
+  Level: '🏆',
   Admin: '🔒',
   Economy: '💰',
   Info: 'ℹ️',
@@ -69,7 +69,7 @@ module.exports = {
     const { client } = interaction;
 
     try {
-      await interaction.deferReply({ ephemeral: true }); // Defer reply to prevent errors
+      await interaction.deferReply();
 
       const commandName = interaction.options.getString('command');
       const helpEmbed = new EmbedBuilder()
@@ -96,7 +96,6 @@ module.exports = {
         .editReply({
           content:
             '❌ An error occurred while processing your request. Please try again later.',
-          ephemeral: true,
         })
         .catch(console.error);
     }
@@ -109,7 +108,6 @@ module.exports = {
         return interaction.editReply({
           content:
             '❌ The command you entered was not found. Try using `/help` to see the available commands.',
-          ephemeral: true,
         });
       }
 
@@ -161,7 +159,6 @@ module.exports = {
       const reply = await interaction.editReply({
         embeds: [embed],
         components: [row],
-        ephemeral: true,
       });
 
       // Collector for the back button
@@ -185,7 +182,6 @@ module.exports = {
         .editReply({
           content:
             '❌ An error occurred while displaying command help. Please try again later.',
-          ephemeral: true,
         })
         .catch(console.error);
     }
@@ -198,7 +194,6 @@ module.exports = {
       if (Object.keys(categories).length === 0) {
         return interaction.editReply({
           content: '⚠️ No commands available.',
-          ephemeral: true,
         });
       }
 
@@ -239,7 +234,6 @@ module.exports = {
       const reply = await interaction.editReply({
         embeds: [embed],
         components: [row],
-        ephemeral: true,
       });
 
       this.createCollector(interaction, categories, row, reply);
@@ -250,7 +244,6 @@ module.exports = {
         .editReply({
           content:
             '❌ An error occurred while displaying the help menu. Please try again later.',
-          ephemeral: true,
         })
         .catch(console.error);
     }
@@ -314,7 +307,6 @@ module.exports = {
             .editReply({
               content:
                 '❌ An error occurred while processing your selection. Please try again.',
-              ephemeral: true,
             })
             .catch(console.error);
         }
@@ -339,7 +331,6 @@ module.exports = {
                 .editReply({
                   embeds: [expiredEmbed],
                   components: [],
-                  ephemeral: true,
                 })
                 .catch((err) =>
                   console.error('Failed to update expired menu:', err)
@@ -350,7 +341,6 @@ module.exports = {
                   components: [],
                   content:
                     '⌛ Help menu has expired. Run `/help` again if you need more information.',
-                  ephemeral: true,
                 })
                 .catch((err) =>
                   console.error('Failed to update expired menu:', err)

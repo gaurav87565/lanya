@@ -100,13 +100,7 @@ module.exports = {
       .setURL('https://github.com/birajrai/Lanya.git')
       .setStyle(ButtonStyle.Link);
 
-    const websiteButton = new ButtonBuilder()
-      .setLabel('Website')
-      .setURL('https://lanya.vercel.app')
-      .setStyle(ButtonStyle.Link);
-
     const row = new ActionRowBuilder().addComponents(
-      websiteButton,
       sourceCodeButton
     );
 
