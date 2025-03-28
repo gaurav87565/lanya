@@ -198,6 +198,8 @@ async function runGame(channel, game, interaction) {
       killer,
       victim,
       participants.length,
+      eliminator,
+      eliminatedPlayer,
       interaction.guild
     );
 
