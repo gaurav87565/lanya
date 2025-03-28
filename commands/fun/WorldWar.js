@@ -301,10 +301,13 @@ async function announceElimination(channel, killer, victim, remaining, guild) {
   console.log('Elimination Messages:', eliminationMessages);
   console.log('Elimination Messages Length:', eliminationMessages?.length);
   
-  const eliminationMessage =
-    (Array.isArray(eliminationMessages) && eliminationMessages.length > 0)
-      ? eliminationMessages[Math.floor(Math.random() * eliminationMessages.length)]
-      : 'A soldier has fallen, but their legacy remains!';
+  if (!Array.isArray(eliminationMessages) || eliminationMessages.length === 0) {
+    console.error('Error: eliminationMessages is undefined or empty!');
+}
+
+const eliminationMessage = eliminationMessages?.length
+    ? eliminationMessages[Math.floor(Math.random() * eliminationMessages.length)]
+    : 'A soldier has fallen, but their legacy remains!';
   
   const attachment = new AttachmentBuilder(canvas.toBuffer(), {
     name: 'elimination.png',
