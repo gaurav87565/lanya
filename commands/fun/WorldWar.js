@@ -198,8 +198,6 @@ async function runGame(channel, game, interaction) {
       killer,
       victim,
       participants.length,
-      eliminator,
-      eliminatedPlayer,
       interaction.guild
     );
 
@@ -307,19 +305,8 @@ async function announceElimination(channel, killer, victim, remaining, guild) {
     `🌊 <@${killer}> drowns <@${victim}>'s hopes in a tide of power!`,
   ];
 
-  if (!eliminatedPlayer || !eliminator) {
-    console.error('Error: Eliminator or Eliminated Player is undefined!');
-    return;
-}
-
-const eliminationMessage = eliminationMessages[Math.floor(Math.random() * eliminationMessages.length)]
-    ?.replace(/<@793152180953677885>/g, `<@${eliminator?.id || 'unknown'}>`)
-    .replace(/<@814715190955868221>/g, `<@${eliminatedPlayer?.id || 'unknown'}>`);
-
-if (!eliminationMessage) {
-    console.error('Error: Failed to generate elimination message.');
-    return;
-}
+  const eliminationMessage =
+    eliminationMessages[Math.floor(Math.random() * eliminationMessages.length)];
 
   const attachment = new AttachmentBuilder(canvas.toBuffer(), {
     name: 'elimination.png',
