@@ -63,7 +63,7 @@ module.exports = {
 };
 
 async function setupGame(interaction) {
-  if (!interaction.member.permissions.has('ManageGuild')) {
+  if (!interaction.member.permissions.has('ManageServer')) {
     return interaction.reply({
       content:
         'You do not have `ManageServer` permission to manage worldwar game',
