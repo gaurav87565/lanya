@@ -298,13 +298,18 @@ async function announceElimination(channel, killer, victim, remaining, guild) {
     `🌊 <@${killer}> drowns <@${victim}>'s hopes in a tide of power!`,
   ];
 
+  console.log('Elimination Messages:', eliminationMessages);
+  console.log('Elimination Messages Length:', eliminationMessages?.length);
+  
   const eliminationMessage =
-    eliminationMessages[Math.floor(Math.random() * eliminationMessages.length)];
-
+    (Array.isArray(eliminationMessages) && eliminationMessages.length > 0)
+      ? eliminationMessages[Math.floor(Math.random() * eliminationMessages.length)]
+      : 'A soldier has fallen, but their legacy remains!';
+  
   const attachment = new AttachmentBuilder(canvas.toBuffer(), {
     name: 'elimination.png',
   });
-
+  
   const embed = new EmbedBuilder()
     .setTitle('☠️ Battlefield Report')
     .setDescription(eliminationMessage)
