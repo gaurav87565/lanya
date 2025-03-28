@@ -8,7 +8,7 @@ const {
 } = require('discord.js');
 const WorldWar = require('../../models/WorldWar');
 const path = require('path');
-const Canvas = require('@napi-rs/canvas');
+const Canvas = require('canvas');
 const sharp = require('sharp');
 const fetch = require('node-fetch');
 
@@ -74,13 +74,20 @@ async function setupGame(interaction) {
   const max = interaction.options.getInteger('max_participants');
 
   if (min < 2)
-    return interaction.reply({ content: 'Minimum participants must be at least 2.', ephemeral: true });
+    return interaction.reply('Minimum participants must be at least 2.');
   if (max <= min)
     return interaction.reply(
       'Maximum participants must be greater than minimum participants.'
     );
 
-    let warNumber = (await WorldWar.countDocuments().catch(() => 0)) + 1;
+  let warNumber;
+  try {
+    const count = await WorldWar.countDocuments();
+    warNumber = count + 1;
+  } catch (error) {
+    console.error('Error counting documents:', error);
+    warNumber = 1;
+  }
 
   const newGame = new WorldWar({
     warNumber,
@@ -298,21 +305,13 @@ async function announceElimination(channel, killer, victim, remaining, guild) {
     `🌊 <@${killer}> drowns <@${victim}>'s hopes in a tide of power!`,
   ];
 
-  console.log('Elimination Messages:', eliminationMessages);
-  console.log('Elimination Messages Length:', eliminationMessages?.length);
-  
-  if (!Array.isArray(eliminationMessages) || eliminationMessages.length === 0) {
-    console.error('Error: eliminationMessages is undefined or empty!');
-}
+  const eliminationMessage =
+    eliminationMessages[Math.floor(Math.random() * eliminationMessages.length)];
 
-const eliminationMessage = eliminationMessages?.length
-    ? eliminationMessages[Math.floor(Math.random() * eliminationMessages.length)]
-    : 'A soldier has fallen, but their legacy remains!';
-  
   const attachment = new AttachmentBuilder(canvas.toBuffer(), {
     name: 'elimination.png',
   });
-  
+
   const embed = new EmbedBuilder()
     .setTitle('☠️ Battlefield Report')
     .setDescription(eliminationMessage)
