@@ -116,10 +116,23 @@ module.exports = {
   async sendCategoryMenu(interaction, client, embed) {
     const categories = this.getCategories(client);
 
+    const allCommands = [...client.commands.values()];
+    const categoryData = Object.keys(categories);
+    
     embed
-      .setTitle('📚 Help Menu')
+      .setTitle('📚 Lanya Bot - Help Menu')
       .setThumbnail(client.user.displayAvatarURL())
-      .setDescription('Use the dropdown below to select a category and explore the commands.');
+      .setDescription([
+        `**🤖 Bot Information**`,
+        `Commands Loaded: \`${allCommands.length}\``,
+        `Master Commands: \`${allCommands.length}\``,
+        `Sub Commands: \`${allCommands.reduce((acc, cmd) => acc + (cmd.data.options?.length || 0), 0)}\``,
+        `Total Commands: \`${allCommands.length + allCommands.reduce((acc, cmd) => acc + (cmd.data.options?.length || 0), 0)}\``,
+        `Categories Enabled: \`${categoryData.join(', ')}\``,
+        '',
+        `Use the dropdown below to select a category and explore the commands.`,
+      ].join('\n'));
+    
 
     const dropdown = new StringSelectMenuBuilder()
       .setCustomId('help-category')
