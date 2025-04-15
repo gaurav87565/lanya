@@ -6,26 +6,19 @@ const messageTimestamps = new Map();
 
 module.exports = {
   name: Events.MessageCreate,
+
   async execute(message) {
     if (message.author.bot || !message.guild) return;
 
-    const guildData = await GuildSettings.findOne({
-      guildId: message.guild.id,
-    });
-
-    // Check if guildData exists before accessing properties
+    const guildData = await GuildSettings.findOne({ guildId: message.guild.id });
     if (!guildData || !guildData.levelingEnabled) return;
 
     const messageCooldown = 3000;
     const xpRate = guildData.xpRate || 1;
-
     const currentTime = Date.now();
     const lastMessageTime = messageTimestamps.get(message.author.id);
 
-    if (lastMessageTime && currentTime - lastMessageTime < messageCooldown) {
-      return;
-    }
-
+    if (lastMessageTime && currentTime - lastMessageTime < messageCooldown) return;
     messageTimestamps.set(message.author.id, currentTime);
 
     const xpToAdd = Math.floor(Math.random() * 10 + 5) * xpRate;
@@ -34,6 +27,7 @@ module.exports = {
       guildId: message.guild.id,
       userId: message.author.id,
     });
+
     if (!memberData) {
       memberData = new MemberData({
         guildId: message.guild.id,
@@ -42,24 +36,18 @@ module.exports = {
         xp: 0,
         totalXp: 0,
       });
-    } else {
-      memberData.xp += xpToAdd;
-      memberData.totalXp += xpToAdd;
     }
+
+    memberData.xp += xpToAdd;
+    memberData.totalXp += xpToAdd;
+
+    const calculateXpNeeded = (level) => {
+      if (level === 1) return guildData.startingXp || 100;
+      return (guildData.startingXp || 100) + (level - 1) * (guildData.xpPerLevel || 50);
+    };
 
     let previousLevel = memberData.level;
     let levelUpCount = 0;
-
-    const calculateXpNeeded = (level) => {
-      if (level === 1) {
-        return guildData.startingXp || 100; // Default value if startingXp is undefined
-      } else {
-        return (
-          (guildData.startingXp || 100) +
-          (level - 1) * (guildData.xpPerLevel || 50)
-        ); // Default values
-      }
-    };
 
     while (memberData.xp >= calculateXpNeeded(memberData.level)) {
       memberData.xp -= calculateXpNeeded(memberData.level);
@@ -71,72 +59,74 @@ module.exports = {
       const cooldownTime = 5000;
       const userId = message.author.id;
 
-      if (
-        !cooldowns.has(userId) ||
-        currentTime - cooldowns.get(userId) > cooldownTime
-      ) {
+      if (!cooldowns.has(userId) || currentTime - cooldowns.get(userId) > cooldownTime) {
         cooldowns.set(userId, currentTime);
-        await this.notifyLevelUp(message, memberData.level, guildData);
+        await module.exports.notifyLevelUp(message, memberData.level, guildData);
       }
-      await this.assignRoles(message, previousLevel + 1, memberData.level);
+
+      await module.exports.assignRoles(message, previousLevel + 1, memberData.level);
     }
 
     await memberData.save();
   },
 
-  async notifyLevelUp(message, level, guildData) {
-    const levelUpChannel = guildData.levelUpChannelId
-      ? message.guild.channels.cache.get(guildData.levelUpChannelId)
-      : message.channel;
+  notifyLevelUp: async (message, level, guildData) => {
+    try {
+      let channel = message.channel;
 
-    await levelUpChannel.send(
-      `${message.author} has leveled up to level ${level}!`
-    );
+      if (guildData.levelUpChannelId) {
+        const target = message.guild.channels.cache.get(guildData.levelUpChannelId);
+        if (target && target.isTextBased()) channel = target;
+      }
+
+      if (!channel || !channel.send) {
+        console.warn(`No valid level-up channel found for guild ${message.guild.id}`);
+        return;
+      }
+
+      await channel.send(`${message.author} has leveled up to level **${level}**! 🎉`);
+    } catch (err) {
+      console.error('Level-up message failed:', err.message);
+    }
   },
 
-  async assignRoles(message, startLevel, endLevel) {
-    const rolesToAdd = await LevelRoles.find({
-      guildId: message.guild.id,
-      level: { $gte: startLevel, $lte: endLevel },
-    });
+  assignRoles: async (message, startLevel, endLevel) => {
+    try {
+      const member = await message.guild.members.fetch(message.author.id);
 
-    if (rolesToAdd.length > 0) {
-      const member = message.guild.members.cache.get(message.author.id);
-      const rolePromises = rolesToAdd.map(async (roleData) => {
-        const role = message.guild.roles.cache.get(roleData.roleId);
-        if (role) {
-          try {
-            await member.roles.add(role);
-          } catch (error) {
-            console.error(
-              `Failed to add role: ${role.name} to ${member.user.username}. Error: ${error.message}`
-            );
-          }
-        }
+      const rolesToAdd = await LevelRoles.find({
+        guildId: message.guild.id,
+        level: { $gte: startLevel, $lte: endLevel },
       });
-      await Promise.all(rolePromises);
-    }
 
-    const additionalRoles = await LevelRoles.find({
-      guildId: message.guild.id,
-      level: { $lt: startLevel },
-    });
-
-    if (additionalRoles.length > 0) {
-      const member = message.guild.members.cache.get(message.author.id);
-      const additionalRolePromises = additionalRoles.map(async (roleData) => {
-        const role = message.guild.roles.cache.get(roleData.roleId);
-        if (role) {
-          try {
-            await member.roles.add(role);
-          } catch (error) {
-            console.error(
-              `Failed to add additional role: ${role.name} to ${member.user.username}. Error: ${error.message}`
-            );
-          }
-        }
+      const additionalRoles = await LevelRoles.find({
+        guildId: message.guild.id,
+        level: { $lt: startLevel },
       });
-      await Promise.all(additionalRolePromises);
+
+      const allRoles = [...rolesToAdd, ...additionalRoles];
+      const roleChunks = [];
+
+      for (let i = 0; i < allRoles.length; i += 20) {
+        roleChunks.push(allRoles.slice(i, i + 20)); // split into chunks of 20
+      }
+
+      for (const chunk of roleChunks) {
+        const promises = chunk.map(async (roleData) => {
+          const role = message.guild.roles.cache.get(roleData.roleId);
+          if (role) {
+            try {
+              await member.roles.add(role);
+            } catch (err) {
+              console.error(`Error adding role ${role.name} to ${member.user.tag}:`, err.message);
+            }
+          }
+        });
+
+        await Promise.all(promises);
+      }
+    } catch (err) {
+      console.error('Error assigning roles:', err.message);
     }
   },
 };
